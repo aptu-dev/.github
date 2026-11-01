@@ -1,0 +1,9 @@
+# Standard code owners (aptu-dev/.github#26).
+# maintainers: code ownership for all paths.
+# security-reviewers: required reviewer gate on CI workflows and security config.
+*       @aptu-dev/core
+.github/workflows/ @aptu-dev/core
+/zizmor.yml @aptu-dev/core
+/safe-settings/ @aptu-dev/core
+/scripts/ @aptu-dev/core
+/org-community/ @aptu-dev/core

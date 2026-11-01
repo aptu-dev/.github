@@ -1,0 +1,91 @@
+name: Apply Org Settings
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  push:
+    branches: [main]
+    paths: ['safe-settings/**']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List repos and desired state without applying (true/false)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: apply-org-settings
+  cancel-in-progress: false
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-26.04-arm
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+          annotations: true
+          min-severity: high
+
+  # Audit job: read-only drift report. Runs on the schedule and on manual
+  # dispatch with dry_run=true. No environment, so org-app secrets are not
+  # available and the run cannot mutate anything (audit MED-4).
+  audit:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+    runs-on: ubuntu-26.04-arm
+    permissions:
+      contents: read
+    concurrency:
+      group: apply-org-settings-audit
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Audit org settings (dry run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: 'true'
+        run: |
+          chmod +x scripts/apply-org-settings.sh
+          scripts/apply-org-settings.sh "$DRY_RUN"
+
+  # Apply job: privileged. Runs on push to main and on manual dispatch with
+  # dry_run=false. Uses the org-app environment, which requires review by the
+  # @aptu-dev/core team (reviewers added out-of-band).
+  apply:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
+    runs-on: ubuntu-26.04-arm
+    environment: org-app
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Mint GitHub App token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0 # zizmor: ignore[github-app] scoped via permission-administration, permission-issues, permission-pull-requests, and permission-contents inputs; repo settings updates need repo administration write, label sync needs issues write, community file sync needs contents and pull requests write; org repo listing needs metadata read only (implied by any repository permission)
+        id: app-token
+        with:
+          client-id: ${{ vars.ORG_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ORG_APP_PRIVATE_KEY }}
+          owner: aptu-dev
+          permission-administration: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-contents: write
+
+      - name: Apply org settings
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          chmod +x scripts/apply-org-settings.sh
+          scripts/apply-org-settings.sh "$DRY_RUN"
