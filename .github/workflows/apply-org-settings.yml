@@ -65,6 +65,8 @@ jobs:
   apply:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
     runs-on: ubuntu-26.04-arm
+    permissions:
+      contents: read
     environment: org-app
     steps:
       - name: Check out repository
