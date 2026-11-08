@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Apply org-wide repo settings, labels, and topics for all non-archived repos.
+# Also distributes the org Renovate config (.github/renovate.json,
+# create-if-missing, never overwritten) so dependency automation is on by
+# default in every repo.
 # Usage: apply-org-settings.sh [dry_run]
 #   dry_run: when "true", list non-archived org repos and the desired-state
 #   summary, then exit without making any mutating API call.
@@ -74,6 +77,17 @@ LABELS_JSON='[
 # Nothing is ever deleted except shadowing .github/ copies.
 COMMUNITY_FILES=(SECURITY.md CODE_OF_CONDUCT.md CONTRIBUTING.md AI_POLICY.md CODEOWNERS)
 COMMUNITY_DIR="${BASH_SOURCE[0]%/*}/../org-community"
+
+# Renovate config: every non-archived repo gets .github/renovate.json
+# (create-if-missing, never overwritten) extending the org preset, so
+# dependency automation is on by default. Per-repo configs -- at
+# .github/renovate.json or repository root -- are overrides and never
+# touched; a root-level renovate.json is never shadowed by a .github/
+# copy (Renovate errors on multiple config files).
+RENOVATE_CONFIG_JSON='{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["local>aptu-dev/.github//default"]
+}'
 
 # Community files sync: PR-based (homebrew-tap pattern). Repo-level main
 # branch rulesets block direct pushes to main, even for Integration tokens.
@@ -174,6 +188,41 @@ commit_github_codeowners() {
   return 0
 }
 
+# Classify the Renovate config for one repo. Sets globals: RENOVATE_CLASS
+# (missing | override | root-override) and RENOVATE_SHA (unused; creation
+# only, never overwrite).
+classify_renovate_config() {
+  local repo="$1"
+  local github_get root_get
+  github_get="$(gh api "/repos/${ORG}/${repo}/contents/.github/renovate.json" 2>&1)" || true
+  if ! grep -q 'HTTP 404' <<<"${github_get}"; then
+    RENOVATE_CLASS="override"
+    return 0
+  fi
+  root_get="$(gh api "/repos/${ORG}/${repo}/contents/renovate.json" 2>&1)" || true
+  if ! grep -q 'HTTP 404' <<<"${root_get}"; then
+    RENOVATE_CLASS="root-override"
+    return 0
+  fi
+  RENOVATE_CLASS="missing"
+  return 0
+}
+
+# Create .github/renovate.json from the inline org default on the sync
+# branch. Only called for the missing class; never overwrites.
+commit_renovate_config() {
+  local repo="$1"
+  local payload put_err
+  payload="$(jq -n --arg m "chore: add org Renovate config" --arg c "$(jq -sRr @base64 <<<"${RENOVATE_CONFIG_JSON}")" --arg b "${SYNC_BRANCH}" \
+    '{message: $m, content: $c, branch: $b}')"
+  if ! put_err="$(gh api --method PUT "/repos/${ORG}/${repo}/contents/.github/renovate.json" \
+      --header "Content-Type: application/json" --input - <<<"${payload}" 2>&1 >/dev/null)"; then
+    echo "FAILED: .github/renovate.json for ${repo}: ${put_err}"
+    return 1
+  fi
+  return 0
+}
+
 # Merge a PR as the app, retrying briefly while checks settle. The app is a
 # bypass-always actor on repo main-branch rulesets, so the merge is expected
 # to succeed on the first attempt; retries only cover transient races.
@@ -242,7 +291,24 @@ sync_community_files() {
         ;;
     esac
   done
-  if [[ "${#actions[@]}" -eq 0 ]]; then
+
+  # Renovate config: create-if-missing in .github/, never overwritten.
+  classify_renovate_config "${repo}" || return 1
+  local renovate_action=""
+  case "${RENOVATE_CLASS}" in
+    override)
+      echo "skipped .github/renovate.json (per-repo override, not overwritten)"
+      ;;
+    root-override)
+      echo "skipped .github/renovate.json (root-level per-repo config, not shadowed)"
+      ;;
+    missing)
+      echo "pending .github/renovate.json (missing)"
+      renovate_action="create"
+      ;;
+  esac
+
+  if [[ "${#actions[@]}" -eq 0 && -z "${renovate_action}" ]]; then
     return 0
   fi
 
@@ -290,6 +356,11 @@ sync_community_files() {
     esac
   done
 
+  if [[ -n "${renovate_action}" ]]; then
+    commit_renovate_config "${repo}" || return 1
+    echo "created .github/renovate.json on ${sync_branch}"
+  fi
+
   # Open the PR (reuse an open PR from a previous partially failed run).
   local pr_number pr_out
   pr_out="$(gh api "/repos/${ORG}/${repo}/pulls?head=${ORG}:${sync_branch}&state=open&base=main" --jq '.[0].number' 2>/dev/null || true)"
@@ -298,7 +369,7 @@ sync_community_files() {
   else
     if ! pr_number="$(gh api --method POST "/repos/${ORG}/${repo}/pulls" \
         --header "Content-Type: application/json" \
-        --input - <<<"$(jq -n --arg h "${sync_branch}" '{title: "chore: sync org community files", head: $h, base: "main", body: "Places org community files at the repository root and removes shadowing .github/ copies. Canonical defaults live in aptu-dev/.github. Automated pull request; safe to merge."}')" \
+        --input - <<<"$(jq -n --arg h "${sync_branch}" '{title: "chore: sync org community files", head: $h, base: "main", body: "Places org community files at the repository root, removes shadowing .github/ copies, and adds the org Renovate config when missing. Canonical defaults live in aptu-dev/.github. Automated pull request; safe to merge."}')" \
         --jq '.number' 2>&1)"; then
       echo "FAILED: open PR for ${repo}: ${pr_number}"
       return 1
@@ -333,6 +404,8 @@ if [[ "${DRY_RUN}" == "true" ]]; then
       echo "${cf}: create if missing at repository root; per-repo overrides never overwritten; shadowing .github/ copies migrated or removed; changes land via PR"
     fi
   done
+  echo "--- renovate config ---"
+  echo ".github/renovate.json: create if missing (extends local>aptu-dev/.github//default); per-repo configs at .github/renovate.json or root never overwritten; changes land via PR"
   if [[ -n "${TOPICS:-}" ]]; then
     echo "--- desired topics ---"
     echo "${TOPICS}"
