@@ -14,6 +14,12 @@
 # Semantics: add/update-only -- files are created when missing and updated
 # when they drift; nothing is ever deleted. Per-repo CODEOWNERS overrides
 # are respected and never overwritten by sync.
+#
+# Renovate config: the script creates .github/renovate.json (extending the
+# org preset local>aptu-dev/.github//default) in every non-archived repo
+# where it is missing. Create-if-missing only: per-repo configs at
+# .github/renovate.json or repository root are overrides and never
+# overwritten; a root-level config is never shadowed by a .github/ copy.
 
 settings:
   allow_squash_merge: true
