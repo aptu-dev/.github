@@ -46,6 +46,11 @@ on:
         required: false
         type: string
         default: ""
+      zizmor-online-audits:
+        description: Run zizmor online audits (impostor-commit, known-vulnerable-actions); disable when callers reference private reusable workflows the caller token cannot read, since the audit hard-errors and aborts the whole run
+        required: false
+        type: boolean
+        default: true
       markdownlint-globs:
         description: Globs passed to markdownlint-cli2
         required: false
@@ -102,6 +107,7 @@ jobs:
           min-severity: ${{ inputs.zizmor-min-severity }}
           advanced-security: false
           config: ${{ inputs.zizmor-config }}
+          online-audits: ${{ inputs.zizmor-online-audits }}
 
   reuse:
     name: REUSE Compliance
