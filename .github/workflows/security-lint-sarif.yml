@@ -138,14 +138,18 @@ jobs:
           node-version: "24"
       - name: Install dependencies
         if: inputs.markdown-lint-install != ''
-        run: ${{ inputs.markdown-lint-install }}
+        # By design: the caller supplies the install command, and the caller
+        # already controls its own workflows, so no escalation is possible.
+        run: ${{ inputs.markdown-lint-install }} # zizmor: ignore[template-injection]
       - name: Lint with markdownlint-cli2
         uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
         with:
           globs: ${{ inputs.markdownlint-globs }}
       - name: Extra markdown checks
         if: inputs.markdown-extra-check != ''
-        run: ${{ inputs.markdown-extra-check }}
+        # By design: the caller supplies the check script, and the caller
+        # already controls its own workflows, so no escalation is possible.
+        run: ${{ inputs.markdown-extra-check }} # zizmor: ignore[template-injection]
 
   security-result:
     name: Security Result
