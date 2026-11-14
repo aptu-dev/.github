@@ -51,6 +51,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The oci-arm runner image ships without gh; install a pinned,
+      # SHA256-verified build for the audit script.
+      - name: Set up gh
+        run: |
+          GH_VERSION=2.104.0
+          curl -fsSL -o /tmp/gh.tar.gz \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.tar.gz"
+          echo "cb34cefc6f4e77b90731374a2b737516bb8f3033c6ca46aa949e5344f68069e3  /tmp/gh.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gh.tar.gz -C /tmp
+          echo "/tmp/gh_${GH_VERSION}_linux_arm64/bin" >> "$GITHUB_PATH"
+
       - name: Audit org settings (dry run)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -83,6 +94,17 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
           permission-contents: write
+
+      # The oci-arm runner image ships without gh; install a pinned,
+      # SHA256-verified build for the apply script.
+      - name: Set up gh
+        run: |
+          GH_VERSION=2.104.0
+          curl -fsSL -o /tmp/gh.tar.gz \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.tar.gz"
+          echo "cb34cefc6f4e77b90731374a2b737516bb8f3033c6ca46aa949e5344f68069e3  /tmp/gh.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gh.tar.gz -C /tmp
+          echo "/tmp/gh_${GH_VERSION}_linux_arm64/bin" >> "$GITHUB_PATH"
 
       - name: Apply org settings
         env:
