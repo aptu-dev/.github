@@ -64,7 +64,9 @@ org follow one convention:
 
   ```yaml
   concurrency:
-    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+    group: >-
+      ${{ github.workflow }}-${{ github.event.pull_request.number
+      || github.ref_name }}
     cancel-in-progress: true
   ```
 
@@ -76,7 +78,14 @@ org follow one convention:
 - Scheduled and deploy workflows use their own group with
   `cancel-in-progress: false`.
 
-The org standard runner for CI is `ubuntu-26.04-arm`.
+CI runs on the `oci-arm` self-hosted ARM64 runner group for private
+repositories; public repositories must use GitHub-hosted runners
+(`ubuntu-26.04-arm`) — never self-hosted runners on public repos, since
+fork PRs can execute arbitrary code on the host. Shared golden workflows
+(runner-watchdog, security-lint, scorecard) live in this repo under
+`.github/workflows/` and are called by fleet repos via stub-only callers
+pinned to a full commit SHA (weekly cron, workflow_dispatch, minimal
+permissions). Methodology: clouatre-labs/.github `docs/golden-workflows.md`.
 
 ## Changing these standards
 
