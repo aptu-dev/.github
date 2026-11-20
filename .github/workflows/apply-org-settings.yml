@@ -23,7 +23,7 @@ concurrency:
 jobs:
   zizmor:
     name: zizmor
-    runs-on: [oci-arm]
+    runs-on: ubuntu-26.04-arm
     permissions:
       contents: read
     steps:
@@ -41,7 +41,7 @@ jobs:
   # available and the run cannot mutate anything (audit MED-4).
   audit:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
-    runs-on: [oci-arm]
+    runs-on: ubuntu-26.04-arm
     permissions:
       contents: read
     concurrency:
@@ -51,16 +51,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The oci-arm runner image ships without gh; install a pinned,
-      # SHA256-verified build for the audit script.
-      - name: Set up gh
-        run: |
-          GH_VERSION=2.104.0
-          curl -fsSL -o /tmp/gh.tar.gz \
-            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.tar.gz"
-          echo "cb34cefc6f4e77b90731374a2b737516bb8f3033c6ca46aa949e5344f68069e3  /tmp/gh.tar.gz" | sha256sum -c -
-          tar -xzf /tmp/gh.tar.gz -C /tmp
-          echo "/tmp/gh_${GH_VERSION}_linux_arm64/bin" >> "$GITHUB_PATH"
+      # GitHub-hosted runners ship gh; no manual install needed.
 
       - name: Audit org settings (dry run)
         env:
@@ -75,10 +66,8 @@ jobs:
   # @aptu-dev/core team (reviewers added out-of-band).
   apply:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
-    runs-on: [oci-arm]
-    permissions:
-      contents: read
     environment: org-app
+    runs-on: ubuntu-26.04-arm
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,16 +84,7 @@ jobs:
           permission-pull-requests: write
           permission-contents: write
 
-      # The oci-arm runner image ships without gh; install a pinned,
-      # SHA256-verified build for the apply script.
-      - name: Set up gh
-        run: |
-          GH_VERSION=2.104.0
-          curl -fsSL -o /tmp/gh.tar.gz \
-            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.tar.gz"
-          echo "cb34cefc6f4e77b90731374a2b737516bb8f3033c6ca46aa949e5344f68069e3  /tmp/gh.tar.gz" | sha256sum -c -
-          tar -xzf /tmp/gh.tar.gz -C /tmp
-          echo "/tmp/gh_${GH_VERSION}_linux_arm64/bin" >> "$GITHUB_PATH"
+      # GitHub-hosted runners ship gh; no manual install needed.
 
       - name: Apply org settings
         env:

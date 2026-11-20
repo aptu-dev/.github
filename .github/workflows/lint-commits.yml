@@ -21,7 +21,7 @@ permissions:
 jobs:
   lint-commits:
     name: Lint Commits
-    runs-on: [oci-arm]
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 5
     steps:
       - name: Checkout
