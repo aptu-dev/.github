@@ -18,7 +18,7 @@ concurrency:
 jobs:
   zizmor:
     name: zizmor
-    runs-on: [oci-arm]
+    runs-on: ubuntu-26.04-arm
     permissions:
       contents: read
     steps:
@@ -35,7 +35,7 @@ jobs:
   # @aptu-dev/core team (required reviewers configured
   # out-of-band on the environment); admins cannot bypass the gate.
   apply:
-    runs-on: [oci-arm]
+    runs-on: ubuntu-26.04-arm
     environment: org-app
     steps:
       - name: Check out repository
