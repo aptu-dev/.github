@@ -64,8 +64,30 @@ jobs:
   # Apply job: privileged. Runs on push to main and on manual dispatch with
   # dry_run=false. Uses the org-app environment, which requires review by the
   # @aptu-dev/core team (reviewers added out-of-band).
+  # Gate: secrets context is unavailable in job-level if, so probe the
+  # environment secret here and expose the result as an output.
+  gate:
+    runs-on: ubuntu-26.04-arm
+    permissions: {}
+    outputs:
+      apply-configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check apply prerequisites
+        id: check
+        env:
+          HAS_KEY: ${{ secrets.ORG_APP_PRIVATE_KEY != '' }}
+        run: echo "configured=$HAS_KEY" >> "$GITHUB_OUTPUT"
+
   apply:
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
+    # Guard on the App key secret: aptu-dev's org-app environment has no
+    # ORG_APP_PRIVATE_KEY configured yet (the App exists, client id
+    # Iv1.8d242d6d729752ee, but its key was never stored). Until the key is
+    # added, pushes to main skip the apply job instead of failing red; the
+    # scheduled read-only audit is unaffected.
+    if: >-
+      needs.gate.outputs.apply-configured == 'true' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true))
+    needs: gate
     environment: org-app
     runs-on: ubuntu-26.04-arm
     steps:
