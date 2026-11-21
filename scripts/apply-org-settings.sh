@@ -394,6 +394,8 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   echo "--- desired settings ---"
   echo "squash-only merges (COMMIT_OR_PR_TITLE / COMMIT_MESSAGES), auto-merge on,"
   echo "delete branch on merge, wiki/projects/discussions off."
+  echo "--- desired org Actions permissions ---"
+  echo "sha_pinning_required=true (allowed_actions=all, enabled_repositories=all)"
   echo "--- desired labels ---"
   echo "${LABELS_JSON}" | jq -r '.[] | "\(.name) #\(.color) \(.description)"'
   echo "--- community files (org-community/ -> .github/<name>) ---"
@@ -416,6 +418,16 @@ if [[ "${DRY_RUN}" == "true" ]]; then
 fi
 
 FAILED=0
+
+# Org-level Actions permissions: enforce SHA pinning of actions and reusable
+# workflows (org setting, PUT is idempotent; re-applied if drifted). The PUT
+# requires org administration rights on the token.
+if [[ "$(gh api "orgs/${ORG}/actions/permissions" --jq '.sha_pinning_required')" != "true" ]]; then
+  echo "Enforcing org Actions sha_pinning_required=true for ${ORG}"
+  gh api -X PUT "orgs/${ORG}/actions/permissions" \
+    -f allowed_actions=all -f enabled_repositories=all -F sha_pinning_required=true \
+    || FAILED=1
+fi
 
 # Step-summary file for the community files sync section; created once.
 _COMMUNITY_SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"

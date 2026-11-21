@@ -21,6 +21,10 @@
 # .github/renovate.json or repository root are overrides and never
 # overwritten; a root-level config is never shadowed by a .github/ copy.
 
+# Org Actions permissions: sha_pinning_required=true (allowed_actions=all,
+# enabled_repositories=all) is enforced by the script at the org level every
+# run (PUT /orgs/{org}/actions/permissions, idempotent, re-applies drift).
+
 settings:
   allow_squash_merge: true
   squash_merge_commit_title: COMMIT_OR_PR_TITLE
