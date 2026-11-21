@@ -69,6 +69,9 @@ jobs:
   gate:
     runs-on: ubuntu-26.04-arm
     permissions: {}
+    # Must declare the environment: environment secrets resolve only for
+    # jobs that declare it, and apply's precondition is an environment secret.
+    environment: org-app
     outputs:
       apply-configured: ${{ steps.check.outputs.configured }}
     steps:
