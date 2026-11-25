@@ -82,7 +82,7 @@ CI runs on the `oci-arm` self-hosted ARM64 runner group for private
 repositories; public repositories must use GitHub-hosted runners
 (`ubuntu-26.04-arm`) — never self-hosted runners on public repos, since
 fork PRs can execute arbitrary code on the host. Shared golden workflows
-(runner-watchdog, security-lint, scorecard) live in this repo under
+(runner-watchdog, security-lint) live in this repo under
 `.github/workflows/` and are called by fleet repos via stub-only callers
 pinned to a full commit SHA (weekly cron, workflow_dispatch, minimal
 permissions). Methodology: clouatre-labs/.github `docs/golden-workflows.md`.
